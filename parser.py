@@ -109,25 +109,26 @@ def render_markdown(text: str) -> str:
     mermaid.initialize({{
         startOnLoad: false,
         theme: 'dark',
-        suppressErrors: true,
-        suppressErrorRendering: true
+        securityLevel: 'loose',
+        logLevel: 'fatal'
     }});
-    setTimeout(function() {{
+    setTimeout(async function() {{
         var elements = document.querySelectorAll('.mermaid');
-        elements.forEach(function(el) {{
-            var code = el.textContent;
+        for (var el of elements) {{
+            var code = el.textContent.trim();
+            var originalCode = code;
             try {{
-                mermaid.render('mermaid-' + Math.random().toString(36).substr(2, 9), code).then(function(result) {{
+                var result = await mermaid.render('mermaid-' + Math.random().toString(36).substr(2, 9), code);
+                if (result && result.svg && result.svg.indexOf('<svg') !== -1) {{
                     el.innerHTML = result.svg;
-                }}).catch(function(err) {{
-                    // On error, show as code block instead
-                    el.innerHTML = '<pre style="text-align:left;"><code>' + code.replace(/</g, '&lt;') + '</code></pre>';
-                }});
+                }} else {{
+                    throw new Error('Invalid SVG');
+                }}
             }} catch(e) {{
-                el.innerHTML = '<pre style="text-align:left;"><code>' + code.replace(/</g, '&lt;') + '</code></pre>';
+                el.innerHTML = '<pre style="background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:6px;text-align:left;white-space:pre;overflow-x:auto;"><code>' + originalCode.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code></pre>';
             }}
-        }});
-    }}, 50);
+        }}
+    }}, 100);
 }})();
 </script>
 '''
