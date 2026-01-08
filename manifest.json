@@ -2,7 +2,7 @@
     "name": "AnkiMD",
     "package": "ankimd",
     "author": "Lauren Wong",
-    "version": "2.0.0",
+    "version": "3.0.0",
     "homepage": "https://github.com/laurensent",
     "conflicts": []
 }
