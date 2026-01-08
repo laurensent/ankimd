@@ -7,8 +7,8 @@ Author: Lauren Wong
 
 from aqt import gui_hooks, mw
 
-# Note type name
-NOTE_TYPE_NAME = "AnkiMD"
+# Note type name (different from Python version to avoid conflict)
+NOTE_TYPE_NAME = "AnkiMD-JS"
 
 # CSS styles embedded in template
 CARD_CSS = """.card {
