@@ -413,9 +413,11 @@ MARKDOWN_JS = """
     // Strikethrough: ~~text~~
     text = text.replace(/~~([^~]+)~~/g, '<del>$1</del>');
 
-    // Italic: *text* or _text_
-    text = text.replace(/(?<!\\*)\\*([^*]+)\\*(?!\\*)/g, '<em>$1</em>');
-    text = text.replace(/(?<!_)_([^_]+)_(?!_)/g, '<em>$1</em>');
+    // Italic: *text* or _text_ (without lookbehind for compatibility)
+    text = text.replace(/([^*])\\*([^*]+)\\*/g, '$1<em>$2</em>');
+    text = text.replace(/^\\*([^*]+)\\*/g, '<em>$1</em>');
+    text = text.replace(/([^_])_([^_]+)_/g, '$1<em>$2</em>');
+    text = text.replace(/^_([^_]+)_/g, '<em>$1</em>');
 
     return text;
   }
@@ -525,61 +527,15 @@ MARKDOWN_JS = """
     initMermaid();
   }
 
-  // Mermaid initialization
+  // Mermaid: display as formatted code block (CDN not supported in Anki WebView)
   function initMermaid() {
     var mermaidElements = document.querySelectorAll('.mermaid');
-    if (mermaidElements.length === 0) return;
-
-    // Check if mermaid is loaded
-    if (typeof mermaid !== 'undefined') {
-      renderMermaidDiagrams();
-    } else {
-      // Try to load mermaid from CDN
-      var script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
-      script.onload = function() {
-        renderMermaidDiagrams();
-      };
-      script.onerror = function() {
-        // Fallback: show code as-is
-        for (var i = 0; i < mermaidElements.length; i++) {
-          var el = mermaidElements[i];
-          var code = el.textContent;
-          el.innerHTML = '<pre style="text-align:left;"><code>' + escapeHtml(code) + '</code></pre>';
-        }
-      };
-      document.head.appendChild(script);
-    }
-  }
-
-  function renderMermaidDiagrams() {
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: 'dark',
-      securityLevel: 'loose',
-      logLevel: 'fatal'
-    });
-
-    var elements = document.querySelectorAll('.mermaid');
-    for (var i = 0; i < elements.length; i++) {
-      (function(el, index) {
-        var code = el.textContent.trim();
-        if (!code || el.querySelector('svg')) return;
-
-        try {
-          mermaid.render('mermaid-' + index + '-' + Math.random().toString(36).substr(2, 5), code)
-            .then(function(result) {
-              if (result && result.svg) {
-                el.innerHTML = result.svg;
-              }
-            })
-            .catch(function(e) {
-              el.innerHTML = '<pre style="text-align:left;color:#d4d4d4;"><code>' + escapeHtml(code) + '</code></pre>';
-            });
-        } catch (e) {
-          el.innerHTML = '<pre style="text-align:left;color:#d4d4d4;"><code>' + escapeHtml(code) + '</code></pre>';
-        }
-      })(elements[i], i);
+    for (var i = 0; i < mermaidElements.length; i++) {
+      var el = mermaidElements[i];
+      var code = el.textContent.trim();
+      if (!code) continue;
+      // Display mermaid source as code block with label
+      el.innerHTML = '<div style="text-align:left;font-size:11px;color:#6a9955;margin-bottom:4px;">mermaid</div><pre style="margin:0;"><code>' + escapeHtml(code) + '</code></pre>';
     }
   }
 
