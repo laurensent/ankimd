@@ -47,6 +47,28 @@ graph LR
 ```
 ~~~
 
+## FAQ
+
+**What happens if I remove the addon?**
+
+Your cards stay intact but display as raw Markdown (e.g., `**bold**` instead of **bold**). Reinstalling restores everything.
+
+**Can I use this with other note types?**
+
+No. Markdown rendering only works with "AnkiMD" and "AnkiMD Cloze" note types.
+
+**Does it require internet?**
+
+No. Mermaid.js is bundled locally for offline use.
+
+**Why isn't my Markdown rendering?**
+
+Make sure you're using the correct note type (AnkiMD or AnkiMD Cloze). Other note types won't be processed.
+
+**Does it work on mobile / AnkiWeb?**
+
+No. This addon only runs on Anki desktop. On mobile/AnkiWeb, cards display as raw Markdown.
+
 ## License
 
 MIT
