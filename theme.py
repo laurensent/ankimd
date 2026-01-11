@@ -143,10 +143,19 @@ li {
 /* Mermaid diagrams */
 .mermaid {
   background-color: #1e1e1e;
-  padding: 16px;
+  padding: 20px 30px;
   border-radius: 6px;
   margin: 12px 0;
   text-align: center;
+  overflow: visible;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+  display: block;
+  margin: 0 auto;
 }
 
 .mermaid img {

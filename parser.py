@@ -15,22 +15,49 @@ PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 MERMAID_JS_PATH = os.path.join(PLUGIN_DIR, 'mermaid.min.js')
 
 
-def render_markdown(text: str) -> str:
+def render_markdown(text: str, is_cloze: bool = False) -> str:
     """Convert Markdown to HTML with syntax highlighting."""
     if not text or not text.strip():
         return text
 
     original = text
     has_mermaid = False
+    cloze_placeholders = {}  # Store cloze spans for mermaid restoration
 
     try:
-        # Step 1: Extract code blocks BEFORE any HTML processing
+        # Step 0: Extract and preserve <style> tags (Anki adds CSS before content)
+        style_tags = []
+        def save_style(match):
+            style_tags.append(match.group(0))
+            return ''
+        text = re.sub(r'<style[^>]*>[\s\S]*?</style>', save_style, text, flags=re.IGNORECASE)
+
+        # Step 1: HTML normalization FIRST (Anki editor converts input to HTML)
+        # This must happen before code block extraction so ``` patterns can match
+        text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+        text = text.replace('&nbsp;', ' ')
+        text = re.sub(r'</?div[^>]*>', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'\n{3,}', '\n\n', text)
+
+        # Step 1.5: Preserve existing <img> tags from Anki (pasted images)
+        img_tags = {}
+        def save_img_tag(match):
+            placeholder = f'IMGTAG{uuid.uuid4().hex}ENDIMG'
+            img_tags[placeholder] = match.group(0)
+            return placeholder
+        text = re.sub(r'<img[^>]+>', save_img_tag, text, flags=re.IGNORECASE)
+
+        # Step 2: Extract code blocks
         code_blocks = {}
 
         def save_code_block(match):
             nonlocal has_mermaid
             lang = (match.group(1) or '').lower()
             code = match.group(2)
+
+            # For mermaid in cloze mode, preserve cloze spans before cleaning
+            if lang == 'mermaid' and is_cloze:
+                code = _extract_cloze_for_mermaid(code, cloze_placeholders)
 
             # Clean up code block content
             code = re.sub(r'<[^>]+>', '\n', code)
@@ -53,19 +80,8 @@ def render_markdown(text: str) -> str:
 
         text = re.sub(r'```(\w*)([\s\S]*?)```', save_code_block, text)
 
-        # Step 1.5: Preserve existing <img> tags from Anki (pasted images)
-        img_tags = {}
-        def save_img_tag(match):
-            placeholder = f'IMGTAG{uuid.uuid4().hex}ENDIMG'
-            img_tags[placeholder] = match.group(0)
-            return placeholder
-        text = re.sub(r'<img[^>]+>', save_img_tag, text, flags=re.IGNORECASE)
-
-        # Step 2: HTML normalization
-        text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
-        text = text.replace('&nbsp;', ' ')
+        # Step 2.5: Continue HTML normalization
         text = html.unescape(text)
-        text = re.sub(r'</?div[^>]*>', '\n', text, flags=re.IGNORECASE)
         # Add newlines around <hr> tags so content after them is on its own line
         text = re.sub(r'(<hr[^>]*>)', r'\n\1\n', text, flags=re.IGNORECASE)
         text = re.sub(r'\n{3,}', '\n\n', text)
@@ -102,10 +118,20 @@ def render_markdown(text: str) -> str:
             try:
                 with open(MERMAID_JS_PATH, 'r', encoding='utf-8') as f:
                     mermaid_js_content = f.read()
+
+                # Build cloze replacement map for JavaScript
+                cloze_map_js = '{}'
+                if is_cloze and cloze_placeholders:
+                    pairs = [f'"{k}": "{v}"' for k, v in cloze_placeholders.items()]
+                    cloze_map_js = '{' + ', '.join(pairs) + '}'
+
                 mermaid_script = f'''
+<style>.mermaid {{ visibility: hidden; }}</style>
 <script>{mermaid_js_content}</script>
 <script>
 (function() {{
+    var clozeMap = {cloze_map_js};
+
     mermaid.initialize({{
         startOnLoad: false,
         theme: 'dark',
@@ -120,12 +146,19 @@ def render_markdown(text: str) -> str:
             try {{
                 var result = await mermaid.render('mermaid-' + Math.random().toString(36).substr(2, 9), code);
                 if (result && result.svg && result.svg.indexOf('<svg') !== -1) {{
-                    el.innerHTML = result.svg;
+                    var svg = result.svg;
+                    // Restore cloze spans in SVG
+                    for (var placeholder in clozeMap) {{
+                        svg = svg.split(placeholder).join(clozeMap[placeholder]);
+                    }}
+                    el.innerHTML = svg;
+                    el.style.visibility = 'visible';
                 }} else {{
                     throw new Error('Invalid SVG');
                 }}
             }} catch(e) {{
                 el.innerHTML = '<pre style="background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:6px;text-align:left;white-space:pre;overflow-x:auto;"><code>' + originalCode.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code></pre>';
+                el.style.visibility = 'visible';
             }}
         }}
     }}, 100);
@@ -135,7 +168,9 @@ def render_markdown(text: str) -> str:
             except Exception as e:
                 print(f"[AnkiMD] Failed to load mermaid.js: {e}")
 
-        return CSS_STYLES + text.strip() + mermaid_script
+        # Restore original style tags (from Anki template) + our CSS
+        style_prefix = ''.join(style_tags) if style_tags else ''
+        return style_prefix + CSS_STYLES + text.strip() + mermaid_script
 
     except Exception as e:
         print(f"[AnkiMD] Parse error: {e}")
@@ -336,3 +371,55 @@ def _convert_table(lines: list) -> str:
 
     html_parts.append('</tbody></table>')
     return ''.join(html_parts)
+
+
+def _extract_cloze_for_mermaid(code: str, placeholders: dict) -> str:
+    """Extract Anki cloze spans from mermaid code and replace with placeholders.
+
+    Anki processes cloze deletions before our hook runs, converting:
+    - {{c1::answer}} -> <span class="cloze">[...]</span> (question side, active)
+    - {{c1::answer}} -> <span class="cloze">answer</span> (answer side, active)
+    - {{c2::other}} -> <span class="cloze-inactive">other</span> (inactive cloze)
+
+    We extract the text content and cloze type, then restore with SVG-compatible styling.
+    """
+    counter = [0]  # Use list to allow modification in nested function
+
+    def replace_cloze(match):
+        span_html = match.group(0)
+        counter[0] += 1
+
+        # Extract text content from span
+        text_match = re.search(r'>([^<]*)</span>', span_html)
+        text_content = text_match.group(1) if text_match else '...'
+
+        # Create placeholder with same visual length as content
+        # Use 'X' padding to match content length (for correct node sizing in mermaid)
+        # Format: QQQ + number + padding + QQQ
+        base = f'QQQ{counter[0]}'
+        # Calculate padding needed (Chinese chars are ~2x width, so use 2x length)
+        content_len = len(text_content) * 2  # Approximate for CJK characters
+        padding_len = max(0, content_len - len(base) - 3)  # -3 for ending QQQ
+        placeholder = base + 'X' * padding_len + 'QQQ'
+
+        # Check if it's active cloze (for styling)
+        is_active = 'cloze-inactive' not in span_html
+
+        # Store text and style info for SVG restoration
+        # Use tspan for SVG compatibility with fill color for cloze highlight
+        if is_active:
+            # Active cloze: cyan color (#4ec9b0)
+            svg_replacement = f'<tspan fill="#4ec9b0" font-weight="bold">{html.escape(text_content)}</tspan>'
+        else:
+            # Inactive cloze: normal color
+            svg_replacement = html.escape(text_content)
+
+        placeholders[placeholder] = svg_replacement.replace('"', '\\"')
+        return placeholder
+
+    # Match cloze spans (both active and inactive)
+    # Pattern: <span class="cloze...">...</span>
+    pattern = r'<span class="cloze(?:-inactive)?"[^>]*>.*?</span>'
+    code = re.sub(pattern, replace_cloze, code, flags=re.DOTALL)
+
+    return code
