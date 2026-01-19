@@ -3,7 +3,7 @@
 ## 1. Flowchart (graph)
 
 **Text:**
-```
+````
 ## Glycolysis
 
 ```mermaid
@@ -11,7 +11,7 @@ graph LR
     A[Glucose] --> B[{{c1::Pyruvate}}]
     B --> C[{{c2::Acetyl-CoA}}]
 ```
-```
+````
 
 **Extra:** `Occurs in the cytoplasm`
 
@@ -20,7 +20,7 @@ graph LR
 ## 2. Sequence Diagram (sequenceDiagram)
 
 **Text:**
-```
+````
 ## DNA Replication
 
 ```mermaid
@@ -30,7 +30,7 @@ sequenceDiagram
     A->>B: Unwind double helix
     B->>B: Synthesize new strand
 ```
-```
+````
 
 **Extra:** `Semi-conservative replication`
 
@@ -39,7 +39,7 @@ sequenceDiagram
 ## 3. State Diagram (stateDiagram)
 
 **Text:**
-```
+````
 ## Cell Cycle
 
 ```mermaid
@@ -50,7 +50,7 @@ stateDiagram-v2
     G2 --> M: {{c2::Mitosis}}
     M --> [*]
 ```
-```
+````
 
 **Extra:** `G1 checkpoint detects DNA damage`
 
@@ -59,7 +59,7 @@ stateDiagram-v2
 ## 4. Pie Chart (pie)
 
 **Text:**
-```
+````
 ## Body Elements
 
 ```mermaid
@@ -68,7 +68,7 @@ pie title Major Elements
     "{{c2::Carbon}}" : 18
     "Other" : 17
 ```
-```
+````
 
 **Extra:** `By mass percentage`
 
@@ -77,7 +77,7 @@ pie title Major Elements
 ## 5. Class Diagram (classDiagram)
 
 **Text:**
-```
+````
 ## Animal Classification
 
 ```mermaid
@@ -85,7 +85,7 @@ classDiagram
     Animal <|-- {{c1::Chordata}}
     Chordata <|-- {{c2::Mammalia}}
 ```
-```
+````
 
 **Extra:** `Kingdom > Phylum > Class > Order > Family > Genus > Species`
 
